@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <%- include('../partials/header.ejs') %>
+    <main>
+        <div class="container">
+            <h2>Chat with Carpool Uploader</h2>
+            <div class="chat-box" id="chat-box">
+                <% messages.forEach(msg => { %>
+                    <p><b><%= msg.sender.name %>:</b> <%= msg.message %></p>
+                <% }); %>
+            </div>
+            <form id="chat-form">
+                <input type="text" id="message-input" placeholder="Type a message..." required>
+                <button type="submit">Send</button>
+            </form>
+        </div>
+    </main>
+    <%- include('../partials/footer.ejs') %>
+
+    <script>
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const chatBox = document.getElementById('chat-box');
+
+        const carpoolId = '<%= carpoolId %>';
+        const userId = '<%= locals.user.id %>';
+
+        const ws = new WebSocket('ws://localhost:3000');
+
+        ws.onopen = () => {
+            console.log('Connected to WebSocket');
+            // Join the specific chat room
+            ws.send(JSON.stringify({ type: 'join', carpoolId: carpoolId, userId: userId }));
+        };
+
+        ws.onmessage = (event) => {
+            const message = event.data;
+            const messageElement = document.createElement('div');
+            messageElement.textContent = message;
+            chatBox.appendChild(messageElement);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        };
+
+        ws.onclose = () => {
+            console.log('Disconnected from WebSocket server');
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (message && ws.readyState === WebSocket.OPEN) {
+                // Send a JSON object with all necessary data
+                ws.send(JSON.stringify({
+                    type: 'chat',
+                    carpoolId: carpoolId,
+                    userId: userId,
+                    message: message
+                }));
+                messageInput.value = '';
+            }
+        });
+    </script>
+</body>
+</html>

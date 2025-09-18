@@ -1,0 +1,16 @@
+<header>
+    <nav>
+        <div class="logo">Carpool Service</div>
+        <ul>
+            <% if (typeof locals.user !== 'undefined' && locals.user) { %>
+                <li><a href="/">Dashboard</a></li>
+                <% if (locals.user.role === 'user') { %>
+                    <li><a href="/create-offer">Create Offer</a></li>
+                <% } %>
+                <li><a href="/logout">Logout</a></li>
+            <% } else { %>
+                <li><a href="/">Login / Register</a></li>
+            <% } %>
+        </ul>
+    </nav>
+</header>

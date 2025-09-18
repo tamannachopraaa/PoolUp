@@ -1,0 +1,23 @@
+<%- include('../layouts/main', { title: 'Manage Carpool Offers' }) %>
+<div class="container">
+    <h2>Manage All Carpool Offers</h2>
+    <h3>Review and Delete Offers from Users</h3>
+    <div class="carpool-list">
+        <% if (carpools.length > 0) { %>
+            <% carpools.forEach(carpool => { %>
+                <div class="carpool-item">
+                    <h4><%= carpool.carName %></h4>
+                    <p>From: <%= carpool.location %></p>
+                    <p>Time: <%= carpool.time %></p>
+                    <p>Price: $<%= carpool.price %></p>
+                    <p>Posted by: <%= carpool.userId.name %></p>
+                    <form action="/carpools/<%= carpool._id %>?_method=DELETE" method="POST" style="display:inline;">
+                        <button type="submit" class="button delete-button">Delete Offer</button>
+                    </form>
+                </div>
+            <% }); %>
+        <% } else { %>
+            <p>No carpool offers to manage.</p>
+        <% } %>
+    </div>
+</div>
