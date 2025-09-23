@@ -24,27 +24,25 @@ const carpoolSchema = new mongoose.Schema({
     },
     gender: {
         type: String,
-        enum: ['male', 'female'],
+        enum: ['any', 'male', 'female'],
         required: true,
     },
-    genderPreference: {
-        type: Boolean,
-        default: false,
-    },
-    // New fields for seat management
     totalSeats: {
         type: Number,
         required: true,
-        default: 1
     },
     bookedSeats: {
         type: Number,
         default: 0
     },
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
+    // This new field will store the users who have booked a seat
+    bookedBy: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }]
+}, {
+    // This automatically adds `createdAt` and `updatedAt` fields
+    timestamps: true 
 });
 
 module.exports = mongoose.model('Carpool', carpoolSchema);

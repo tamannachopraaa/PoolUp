@@ -1,15 +1,17 @@
-<header>
-    <nav>
-        <div class="logo">Carpool Service</div>
-        <ul>
-            <% if (typeof locals.user !== 'undefined' && locals.user) { %>
+<header class="main-header">
+    <nav class="nav-container">
+        <a href="/" class="nav-logo">PoolUp</a>
+        <ul class="nav-links">
+            <% if (typeof user !== 'undefined' && user) { %>
                 <li><a href="/">Dashboard</a></li>
-                <% if (locals.user.role === 'user') { %>
-                    <li><a href="/create-offer">Create Offer</a></li>
+                <% if (user.role === 'admin') { %>
+                    <li><a href="/admin/manage-offers">Manage Offers</a></li>
+                <% } else { %>
+                    <li><a href="/carpools/new">Create Offer</a></li>
                 <% } %>
                 <li><a href="/logout">Logout</a></li>
             <% } else { %>
-                <li><a href="/">Login / Register</a></li>
+                <li><a href="/auth/login-register">Login / Register</a></li>
             <% } %>
         </ul>
     </nav>

@@ -1,19 +1,107 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title %></title>
-    <link rel="stylesheet" href="/css/style.css">
-</head>
-<body>
-    <%- include('./partials/header.ejs') %>
-    <main>
-        <div class="home-container">
-            <h1>Welcome to the University Carpool Service</h1>
-            <p>Find or offer rides to and from campus. Connect with fellow students for safe and affordable transportation.</p>
+<% if (typeof user !== 'undefined' && user) { %>
+    <div class="page-container">
+        <div class="page-header">
+            <h2>Welcome, <%= user.name %>!</h2>
+            <h3>
+                <% if (user.role === 'admin') { %>
+                    Available Offers (Admin View)
+                <% } else { %>
+                    Available Carpool Offers
+                <% } %>
+            </h3>
         </div>
-    </main>
-    <%- include('./partials/footer.ejs') %>
-</body>
-</html>
+
+        <% if (user.role !== 'admin') { %>
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <a href="/carpools/new" class="btn btn-primary">Create a New Offer</a>
+        </div>
+        <% } %>
+
+        <div class="carpool-grid">
+            <% if (carpools && carpools.length > 0) { %>
+                <% carpools.forEach(carpool => { %>
+                    <div class="carpool-card">
+                        <div>
+                            <h4><%= carpool.carName %></h4>
+                            <p><strong>From:</strong> <%= carpool.location %></p>
+                            <p><strong>Time:</strong> <%= carpool.time %></p>
+                            <p><strong>Price:</strong> ₹<%= carpool.price %></p>
+                            <p><strong>Seats Available:</strong> <%= carpool.totalSeats - carpool.bookedSeats %>/<%= carpool.totalSeats %></p>
+                            <p><strong>Driver:</strong> <%= carpool.userId.name %></p>
+
+                            <% if (carpool.userId.equals(user.id) && carpool.bookedBy.length > 0) { %>
+                                <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                                    <p><strong>Booked By:</strong></p>
+                                    <ul style="list-style: none; padding-left: 1rem;">
+                                        <% carpool.bookedBy.forEach(booker => { %>
+                                            <li><%= booker.name %></li>
+                                        <% }) %>
+                                    </ul>
+                                </div>
+                            <% } %>
+                        </div>
+                        <div class="card-footer">
+                             <% if (user.role === 'admin') { %>
+                                <form action="/admin/offers/<%= carpool._id %>?_method=DELETE" method="POST">
+                                    <button type="submit" class="btn btn-danger">Delete (Admin)</button>
+                                </form>
+                            <% } else if (!carpool.userId.equals(user.id)) { %>
+                                <% const userHasBooked = carpool.bookedBy.some(booker => booker._id.equals(user.id)); %>
+                                <% if (userHasBooked) { %>
+                                    <form action="/carpools/<%= carpool._id %>/cancel" method="POST">
+                                        <button type="submit" class="btn btn-danger">Cancel Booking</button>
+                                    </form>
+                                <% } else if (carpool.bookedSeats < carpool.totalSeats) { %>
+                                    <form action="/carpools/<%= carpool._id %>/book" method="POST">
+                                        <button type="submit" class="btn btn-primary">Book Seat</button>
+                                    </form>
+                                <% } else { %>
+                                    <button class="btn" disabled>Fully Booked</button>
+                                <% } %>
+                            <% } else { %>
+                                <span class="btn" style="background: none; border: 1px solid var(--glow-blue); color: var(--glow-blue); cursor: default;">Your Offer</span>
+                            <% } %>
+                             <a href="/chat/<%= carpool._id %>" class="btn btn-secondary">Chat</a>
+                        </div>
+                    </div>
+                <% }); %>
+            <% } else { %>
+                <p style="text-align: center; grid-column: 1 / -1;">No carpool offers available at the moment.</p>
+            <% } %>
+        </div>
+    </div>
+<% } else { %>
+    <div class="page-container">
+        <div class="hero-container">
+            <h1 style="font-size: 4.5rem; line-height: 1.2;">University Carpooling,<br>Reimagined.</h1>
+            <p style="font-size: 1.2rem; max-width: 550px; margin: 1rem auto 2.5rem;">The smart, affordable, and eco-friendly way for students to commute. Find your ride or offer a seat in just a few clicks.</p>
+            <a href="/auth/login-register" class="btn btn-primary" style="padding: 16px 40px; font-size: 1.1rem;">Get Started</a>
+        </div>
+
+        <div class="benefits-section">
+            <div class="page-header" style="margin-bottom: 3rem;">
+                <h2 style="font-size: 2.5rem;">Why PoolUp?</h2>
+            </div>
+            <div class="carpool-grid">
+                <div class="carpool-card">
+                    <h4>💰 Save Money</h4>
+                    <p>Split fuel and toll costs with fellow students. It's the most affordable way to get to and from campus every day.</p>
+                </div>
+                <div class="carpool-card">
+                    <h4>🤝 Connect & Network</h4>
+                    <p>Meet new people from different courses and build your university network. Your next ride could be with your next study partner!</p>
+                </div>
+                <div class="carpool-card">
+                    <h4>🌍 Eco-Friendly Travel</h4>
+                    <p>Reduce traffic congestion and lower your carbon footprint. Every shared ride helps create a greener campus environment.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="cta-section">
+            <h2>Join Hundreds of Students</h2>
+            <p>Ready to make your commute easier, cheaper, and more enjoyable? Sign up in seconds and find your perfect ride today.</p>
+            <a href="/auth/login-register" class="btn btn-primary">Sign Up Now</a>
+        </div>
+    </div>
+<% } %>

@@ -1,75 +1,62 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title %></title>
-    <link rel="stylesheet" href="/css/style.css">
-</head>
-<body>
-    <%- include('../partials/header.ejs') %>
-    <main>
-        <div class="container">
-            <h2>Chat with Carpool Uploader</h2>
-            <div class="chat-box" id="chat-box">
+<div class="page-container" style="display: grid; place-items: center; min-height: 80vh;">
+    <div class="page-header" style="margin-bottom: 1rem;">
+        <h2>Chat about Ride</h2>
+    </div>
+    <div class="chat-container">
+        <div id="chat-box">
+            <% if(messages && messages.length > 0) { %>
                 <% messages.forEach(msg => { %>
-                    <p><b><%= msg.sender.name %>:</b> <%= msg.message %></p>
+                    <p><strong><%= msg.sender.name %>:</strong> <%= msg.message %></p>
                 <% }); %>
-            </div>
-            <form id="chat-form">
-                <input type="text" id="message-input" placeholder="Type a message..." required>
-                <button type="submit">Send</button>
-            </form>
+            <% } else { %>
+                 <p style="text-align: center; color: var(--text-secondary);">No messages yet. Say hello!</p>
+            <% } %>
         </div>
-    </main>
-    <%- include('../partials/footer.ejs') %>
+        <form id="chat-form">
+            <input type="text" id="message-input" placeholder="Type a message..." required autocomplete="off">
+            <button type="submit" class="btn btn-primary">Send</button>
+        </form>
+    </div>
+</div>
 
-    <script>
-        const chatForm = document.getElementById('chat-form');
-        const messageInput = document.getElementById('message-input');
-        const chatBox = document.getElementById('chat-box');
+<script>
+    const chatForm = document.getElementById('chat-form');
+    const messageInput = document.getElementById('message-input');
+    const chatBox = document.getElementById('chat-box');
 
-        const carpoolId = '<%= carpoolId %>';
-        const userId = '<%= locals.user.id %>';
+    const carpoolId = '<%= carpoolId %>';
+    const userId = '<%= user.id %>';
+    const userName = '<%= user.name %>'; // Pass user name to display
 
-        const ws = new WebSocket('ws://localhost:3000');
+    const ws = new WebSocket(`ws://${window.location.host}`);
 
-        ws.onopen = () => {
-            console.log('Connected to WebSocket');
-            // Join the specific chat room
-            ws.send(JSON.stringify({ type: 'join', carpoolId: carpoolId, userId: userId }));
-        };
+    ws.onopen = () => {
+        console.log('Connected to WebSocket');
+        ws.send(JSON.stringify({ type: 'join', carpoolId: carpoolId }));
+    };
 
-        ws.onmessage = (event) => {
-            const message = event.data;
-            const messageElement = document.createElement('div');
-            messageElement.textContent = message;
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'message') {
+            const messageElement = document.createElement('p');
+            messageElement.innerHTML = `<strong>${data.name}:</strong> ${data.message}`;
             chatBox.appendChild(messageElement);
             chatBox.scrollTop = chatBox.scrollHeight;
-        };
+        }
+    };
 
-        ws.onclose = () => {
-            console.log('Disconnected from WebSocket server');
-        };
-
-        ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-        };
-
-        chatForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const message = messageInput.value.trim();
-            if (message && ws.readyState === WebSocket.OPEN) {
-                // Send a JSON object with all necessary data
-                ws.send(JSON.stringify({
-                    type: 'chat',
-                    carpoolId: carpoolId,
-                    userId: userId,
-                    message: message
-                }));
-                messageInput.value = '';
-            }
-        });
-    </script>
-</body>
-</html>
+    chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const message = messageInput.value.trim();
+        if (message) {
+            ws.send(JSON.stringify({
+                type: 'chat',
+                carpoolId: carpoolId,
+                userId: userId,
+                name: userName,
+                message: message
+            }));
+            messageInput.value = '';
+        }
+    });
+</script>

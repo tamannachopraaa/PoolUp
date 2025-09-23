@@ -1,41 +1,35 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title %></title>
-    <link rel="stylesheet" href="/css/style.css">
-</head>
-<body>
-    <%- include('../partials/header.ejs') %>
-    <main>
-        <div class="container gateway">
-            <div class="auth-section login-section">
-                <h2>User Login</h2>
-                <% if (error) { %>
-                    <p class="error-message"><%= error %></p>
-                <% } %>
-                <% if (message) { %>
-                    <p class="success-message"><%= message %></p>
-                <% } %>
-                <form action="/auth/login" method="POST">
+<div class="page-container" style="display: grid; place-items: center; min-height: 80vh;">
+    <div class="auth-container">
+        <div class="auth-section">
+            <h2 class="page-header">Login</h2>
+            <form action="/auth/login" method="POST" class="form-container" style="padding: 0; background: none; border: none; backdrop-filter: none;">
+                <% if (typeof error !== 'undefined' && error) { %><p style="color: var(--danger-color); margin-bottom: 1rem;"><%= error %></p><% } %>
+                <div class="form-group">
                     <input type="email" name="email" placeholder="Email" required>
+                </div>
+                <div class="form-group">
                     <input type="password" name="password" placeholder="Password" required>
-                    <button type="submit">Login</button>
-                </form>
-            </div>
-            <div class="auth-divider">OR</div>
-            <div class="auth-section register-section">
-                <h2>Register</h2>
-                <form action="/auth/register" method="POST">
-                    <input type="text" name="name" placeholder="Full Name" required>
-                    <input type="email" name="email" placeholder="Email" required>
-                    <input type="password" name="password" placeholder="Password" required>
-                    <button type="submit">Register</button>
-                </form>
-            </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+            </form>
         </div>
-    </main>
-    <%- include('../partials/footer.ejs') %>
-</body>
-</html>
+        
+        <div class="auth-divider">OR</div>
+
+        <div class="auth-section">
+            <h2 class="page-header">Register</h2>
+            <form action="/auth/register" method="POST" class="form-container" style="padding: 0; background: none; border: none; backdrop-filter: none;">
+                <div class="form-group">
+                    <input type="text" name="name" placeholder="Full Name" required>
+                </div>
+                <div class="form-group">
+                    <input type="email" name="email" placeholder="Email" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" name="password" placeholder="Password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Register</button>
+            </form>
+        </div>
+    </div>
+</div>
