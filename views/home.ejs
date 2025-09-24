@@ -28,6 +28,8 @@
                             <p><strong>Price:</strong> ₹<%= carpool.price %></p>
                             <p><strong>Seats Available:</strong> <%= carpool.totalSeats - carpool.bookedSeats %>/<%= carpool.totalSeats %></p>
                             <p><strong>Driver:</strong> <%= carpool.userId.name %></p>
+                            <p><strong>Contact:</strong> <%= carpool.userId.email %></p>
+                            <p><strong>Preference:</strong> <%= carpool.gender %></p>
 
                             <% if (carpool.userId.equals(user.id) && carpool.bookedBy.length > 0) { %>
                                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
