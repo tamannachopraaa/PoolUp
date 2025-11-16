@@ -15,6 +15,8 @@ const helmet = require('helmet');
 // --- REDIS IMPORT ---
 const redis = require('redis'); 
 
+
+
 // Load environment variables
 dotenv.config();
 
@@ -42,6 +44,10 @@ subscriber.connect().then(() => console.log('Redis Subscriber Connected')).catch
 // back to the correct local clients on this specific server instance.
 const localConnections = new Map(); // Key: carpoolId, Value: Set of connected ws clients
 
+const cacheClient = redis.createClient({ url: REDIS_URL });
+cacheClient.connect().catch(console.error);
+
+
 function broadcastToLocalClients(carpoolId, message) {
     if (!localConnections.has(carpoolId)) return;
     localConnections.get(carpoolId).forEach(ws => {
@@ -60,6 +66,28 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 app.use(cookieParser());
+
+const session = require('express-session');
+const RedisStore = require('connect-redis')(session);
+
+const redisStore = new RedisStore({
+    client: cacheClient,
+    prefix: "sess:",
+});
+
+app.use(session({
+    store: redisStore,
+    secret: process.env.SESSION_SECRET || "super-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        maxAge: 1000 * 60 * 60 * 24,
+    },
+}));
+
+
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Import Models and Middleware
@@ -100,19 +128,36 @@ app.set('layout', 'layouts/main');
 // Main Route
 app.get('/', async (req, res) => {
     try {
-        if (res.locals.user) {
-            const carpools = await Carpool.find()
-                .sort({ createdAt: -1 })
-                .populate('userId', 'name email')
-                .populate('bookedBy', 'name'); 
-            return res.render('home', { title: 'Dashboard', carpools });
+        if (!res.locals.user) {
+            return res.render('home', { title: 'Welcome', carpools: [] });
         }
-        res.render('home', { title: 'Welcome', carpools: [] });
+
+        // Try cache first
+        const cacheKey = "carpools:list";
+        const cached = await cacheClient.get(cacheKey);
+
+        if (cached) {
+            console.log("Serving carpools from Redis cache");
+            return res.render('home', { title: 'Dashboard', carpools: JSON.parse(cached) });
+        }
+
+        // Not cached → fetch from Mongo
+        const carpools = await Carpool.find()
+            .sort({ createdAt: -1 })
+            .populate('userId', 'name email')
+            .populate('bookedBy', 'name');
+
+        // Store in cache for 30 seconds
+        await cacheClient.setEx(cacheKey, 30, JSON.stringify(carpools));
+
+        res.render('home', { title: 'Dashboard', carpools });
+
     } catch (err) {
         console.error(err);
         res.status(500).send("Server error loading page.");
     }
 });
+
 
 // Auth Routes (Login, Register, Logout) - Omitted for brevity, assuming no change needed
 app.get('/auth/login-register', (req, res) => res.render('auth/login-register', { title: 'Login / Register', error: null, message: null }));
@@ -162,6 +207,8 @@ app.post('/carpools', auth, async (req, res) => {
     const { carName, location, time, price, gender, totalSeats } = req.body;
     try {
         await Carpool.create({ userId: res.locals.user.id, carName, location, time, price, gender, totalSeats, bookedSeats: 0, bookedBy: [] });
+        await cacheClient.del("carpools:list");
+
         res.redirect('/');
     } catch (err) {
         console.error(err);
@@ -178,6 +225,8 @@ app.post('/carpools/:id/book', auth, async (req, res) => {
                 $inc: { bookedSeats: 1 },
                 $push: { bookedBy: req.user.id } 
             });
+            await cacheClient.del("carpools:list");
+
         }
         res.redirect('/');
     } catch (err) {
@@ -195,6 +244,8 @@ app.post('/carpools/:id/cancel', auth, async (req, res) => {
                 $inc: { bookedSeats: -1 },
                 $pull: { bookedBy: req.user.id }
             });
+            await cacheClient.del("carpools:list");
+
         }
         res.redirect('/');
     } catch (err) {
@@ -203,17 +254,17 @@ app.post('/carpools/:id/cancel', auth, async (req, res) => {
     }
 });
 
-// Chat Route (No change needed here)
+// Chat Route 
 app.get('/chat/:carpoolId', auth, async (req, res) => {
     const messages = await Chat.find({ carpoolId: req.params.carpoolId }).populate('sender', 'name');
     res.render('chat/chat', { title: 'Chat', carpoolId: req.params.carpoolId, messages });
 });
 
-// --- WebSocket Logic (UPDATED for Redis Pub/Sub) ---
+// --- WebSocket Logic  ---
 wss.on('connection', ws => {
     console.log('Client connected to WebSocket');
     
-    // Attach a property to the WebSocket object to track its room
+    
     ws.carpoolId = null;
 
     ws.on('message', async (message) => {
@@ -222,7 +273,7 @@ wss.on('connection', ws => {
             const { type, carpoolId, userId, name, message: messageText } = data;
 
             if (type === 'join') {
-    // Leave previous room
+    
     if (ws.carpoolId && localConnections.has(ws.carpoolId)) {
         localConnections.get(ws.carpoolId).delete(ws);
 
@@ -238,7 +289,6 @@ wss.on('connection', ws => {
 
     ws.carpoolId = carpoolId;
 
-    // Subscribe if first client in this room
     if (!localConnections.has(carpoolId)) {
         try {
             await subscriber.subscribe(carpoolId, (payload) => {
@@ -304,5 +354,5 @@ wss.on('connection', ws => {
 });
 
 // --- EXPORT THE APP AND SERVER ---
-// This is the key for testing
+
 module.exports = { app, server };

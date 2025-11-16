@@ -8,7 +8,7 @@
   "description": "PoolUp is a dynamic web application designed to connect students from the same university for safe, affordable, and convenient carpooling. This platform allows users to offer rides, book seats in available carpools, and communicate in real-time, fostering a connected campus community.",
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "connect-redis": "^9.0.0",
+    "connect-redis": "^6.1.3",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.2",
     "ejs": "^3.1.10",
