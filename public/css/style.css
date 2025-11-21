@@ -1,3 +1,6 @@
+/* ==================================== */
+/* GLOBAL STYLES */
+/* ==================================== */
 body {
     font-family: Arial, sans-serif;
     background-color: #f4f4f4;
@@ -14,6 +17,10 @@ body {
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
+
+/* ==================================== */
+/* HEADER & NAVIGATION */
+/* ==================================== */
 header {
     background: #0056b3;
     color: #fff;
@@ -33,6 +40,10 @@ nav a {
     text-decoration: none;
     font-weight: bold;
 }
+
+/* ==================================== */
+/* HOME PAGE & BUTTONS */
+/* ==================================== */
 .home-container {
     text-align: center;
     padding: 100px 20px;
@@ -59,6 +70,10 @@ nav a {
 .delete-button:hover {
     background-color: #c82333;
 }
+
+/* ==================================== */
+/* FORM ELEMENTS */
+/* ==================================== */
 form input, form select {
     width: 100%;
     padding: 10px;
@@ -66,6 +81,10 @@ form input, form select {
     border: 1px solid #ccc;
     border-radius: 5px;
 }
+
+/* ==================================== */
+/* LIST & CHAT */
+/* ==================================== */
 .carpool-list {
     margin-top: 20px;
 }
@@ -82,4 +101,103 @@ form input, form select {
     overflow-y: scroll;
     padding: 10px;
     margin-bottom: 10px;
+}
+
+/* ==================================== */
+/* CONSOLIDATED INLINE BOOKING CONTROLS */
+/* ==================================== */
+
+/* Container for booking/chat controls: Select + Button(s) */
+.inline-book-form,
+.card-footer {
+    display: flex;
+    align-items: center; /* Vertically center children */
+    gap: 10px;
+}
+
+/* Unified box metrics for all inline controls */
+.inline-book-form .seat-select,
+.inline-book-form .btn-primary,
+.card-footer .btn-secondary {
+    height: 44px;             /* Unified height */
+    box-sizing: border-box;  /* Include padding/border in height */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    margin: 0;               /* Remove accidental margins */
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* Dropdown specific styling (Glassy/Custom Look) */
+.inline-book-form .seat-select {
+    /* Custom background/color as intended by the final rules */
+    background: rgba(31,127,255,0.25);
+    color: #fff; /* text color */
+    border: 1px solid rgba(0,0,0,0.08);
+    min-width: 110px;
+    padding: 0 38px 0 12px; /* Left padding + space on right for arrow */
+    line-height: 1;
+
+    /* Remove browser default styles */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+
+    /* Custom arrow using SVG data URI */
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'><path fill='%23112020' d='M7 10l5 5 5-5z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: calc(100% - 12px) center;
+    background-size: 12px 12px;
+    cursor: pointer;
+    transition: border-color .12s ease, box-shadow .12s ease;
+}
+
+/* Dropdown option text (If needed) */
+.inline-book-form .seat-select option {
+    font-weight: 600;
+    color: #223;
+}
+
+/* Dropdown hover & focus effects */
+.inline-book-form .seat-select:hover {
+    border-color: rgba(31,122,255,0.9);
+}
+.inline-book-form .seat-select:focus {
+    outline: none;
+    border-color: rgba(31,122,255,1);
+    box-shadow: 0 6px 18px rgba(31,122,255,0.08);
+}
+
+/* Primary Button specific styling */
+.inline-book-form .btn-primary {
+    /* Inherits height/box-sizing/etc. from the unified rule above */
+    padding: 0 18px;
+    border: none;
+    /* Ensure no vertical overrides from other rules */
+    margin-top: 0 !important;
+    transform: none !important;
+}
+
+/* ==================================== */
+/* RESPONSIVENESS */
+/* ==================================== */
+@media (max-width: 720px) {
+    /* Allow controls to wrap on small screens */
+    .inline-book-form, .card-footer {
+        gap: 8px;
+        flex-wrap: wrap; /* Only for .inline-book-form if it needs to wrap */
+    }
+    /* Smaller height/width for mobile to save space */
+    .inline-book-form .seat-select {
+        min-width: 72px;
+        height: 40px;
+        font-size: 14px;
+    }
+    .inline-book-form .btn-primary,
+    .card-footer .btn-secondary {
+        height: 40px;
+        font-size: 14px;
+    }
 }
