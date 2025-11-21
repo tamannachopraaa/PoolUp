@@ -26,17 +26,23 @@
                             <p><strong>From:</strong> <%= carpool.location %></p>
                             <p><strong>Time:</strong> <%= carpool.time %></p>
                             <p><strong>Price:</strong> ₹<%= carpool.price %></p>
-                            <p><strong>Seats Available:</strong> <%= carpool.totalSeats - carpool.bookedSeats %>/<%= carpool.totalSeats %></p>
+                            <p><strong>Seats Available:</strong> <%= (carpool.totalSeats || 0) - (carpool.bookedSeats || 0) %>/<%= carpool.totalSeats %></p>
                             <p><strong>Driver:</strong> <%= carpool.userId.name %></p>
                             <p><strong>Contact:</strong> <%= carpool.userId.email %></p>
                             <p><strong>Preference:</strong> <%= carpool.gender %></p>
 
-                            <% if (carpool.userId.equals(user.id) && carpool.bookedBy.length > 0) { %>
+                            <% /* Driver view: show who booked and how many seats */ %>
+                            <% if (carpool.userId && carpool.userId.equals && carpool.userId.equals(user.id) && carpool.bookedBy && carpool.bookedBy.length > 0) { %>
                                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
                                     <p><strong>Booked By:</strong></p>
                                     <ul style="list-style: none; padding-left: 1rem;">
                                         <% carpool.bookedBy.forEach(booker => { %>
-                                            <li><%= booker.name %></li>
+                                            <% 
+                                                // handle populated user vs raw id
+                                                const bookerName = (booker.user && (booker.user.name || booker.user)) ? (booker.user.name || booker.user) : (booker.name || 'User');
+                                                const seatsBooked = (booker.seats) ? booker.seats : 1;
+                                            %>
+                                            <li><%= bookerName %> — <%= seatsBooked %> seat<%= seatsBooked > 1 ? 's' : '' %></li>
                                         <% }) %>
                                     </ul>
                                 </div>
@@ -48,14 +54,39 @@
                                     <button type="submit" class="btn btn-danger">Delete (Admin)</button>
                                 </form>
                             <% } else if (!carpool.userId.equals(user.id)) { %>
-                                <% const userHasBooked = carpool.bookedBy.some(booker => booker._id.equals(user.id)); %>
+
+                                <% 
+                                    // compute if current user has already booked and find their booking
+                                    let userHasBooked = false;
+                                    let userBooking = null;
+                                    if (carpool.bookedBy && carpool.bookedBy.length > 0) {
+                                        for (let i = 0; i < carpool.bookedBy.length; i++) {
+                                            const b = carpool.bookedBy[i];
+                                            const bookedUserId = b.user ? (b.user._id ? b.user._id : b.user) : null;
+                                            if (bookedUserId && String(bookedUserId) === String(user.id)) {
+                                                userHasBooked = true;
+                                                userBooking = b;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    const availableSeats = (carpool.totalSeats || 0) - (carpool.bookedSeats || 0);
+                                %>
+
                                 <% if (userHasBooked) { %>
-                                    <form action="/carpools/<%= carpool._id %>/cancel" method="POST">
+                                    <p style="margin:0 0 0.5rem 0;"><strong>You booked:</strong> <%= userBooking.seats || 1 %> seat<%= (userBooking.seats && userBooking.seats > 1) ? 's' : '' %></p>
+                                    <form action="/carpools/<%= carpool._id %>/cancel" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-danger">Cancel Booking</button>
                                     </form>
-                                <% } else if (carpool.bookedSeats < carpool.totalSeats) { %>
-                                    <form action="/carpools/<%= carpool._id %>/book" method="POST">
-                                        <button type="submit" class="btn btn-primary">Book Seat</button>
+                                <% } else if (availableSeats > 0) { %>
+                                    <form action="/carpools/<%= carpool._id %>/book" method="POST" class="inline-book-form" style="display:flex; gap:0.5rem; align-items:center;">
+                                        <label for="seats-<%= carpool._id %>" class="visually-hidden">Seats</label>
+                                        <select id="seats-<%= carpool._id %>" name="seats" required style="padding:6px 8px;">
+                                            <% for (let i = 1; i <= availableSeats; i++) { %>
+                                                <option value="<%= i %>"><%= i %> seat<%= i > 1 ? 's' : '' %></option>
+                                            <% } %>
+                                        </select>
+                                        <button type="submit" class="btn btn-primary">Book</button>
                                     </form>
                                 <% } else { %>
                                     <button class="btn" disabled>Fully Booked</button>

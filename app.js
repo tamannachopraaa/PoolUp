@@ -15,8 +15,6 @@ const helmet = require('helmet');
 // --- REDIS IMPORT ---
 const redis = require('redis'); 
 
-
-
 // Load environment variables
 dotenv.config();
 
@@ -40,14 +38,13 @@ const subscriber = redis.createClient({ url: REDIS_URL });
 subscriber.connect().then(() => console.log('Redis Subscriber Connected')).catch(err => console.error('Redis Subscriber Error:', err));
 
 // --- In-memory store for tracking LOCAL WebSocket connections ---
-// This replaces the old 'chatRooms' Map and is necessary to map Redis messages
-// back to the correct local clients on this specific server instance.
 const localConnections = new Map(); // Key: carpoolId, Value: Set of connected ws clients
 
 const cacheClient = redis.createClient({ url: REDIS_URL });
 cacheClient.connect().catch(console.error);
 
-// Helper function to broadcast messages to local clients in a specific Carpool room
+module.exports = { app, server };
+
 function broadcastToLocalClients(carpoolId, message) {
     if (!localConnections.has(carpoolId)) return;
     localConnections.get(carpoolId).forEach(ws => {
@@ -86,8 +83,6 @@ app.use(session({
     },
 }));
 
-
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Import Models and Middleware
@@ -101,10 +96,8 @@ app.use((req, res, next) => {
     const token = req.cookies.token;
     if (token) {
         try {
-            // Note: req.user is often used here, but res.locals.user is fine too.
             const verifiedUser = jwt.verify(token, process.env.JWT_SECRET);
             res.locals.user = verifiedUser;
-            // Also attach to req.user for use in auth middleware functions (as seen in your routes)
             req.user = verifiedUser; 
         } catch (ex) {
             res.locals.user = null;
@@ -123,7 +116,7 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.set('layout', 'layouts/main');
 
-// --- ROUTES (No change needed here) ---
+// --- ROUTES ---
 
 // Main Route
 app.get('/', async (req, res) => {
@@ -145,7 +138,8 @@ app.get('/', async (req, res) => {
         const carpools = await Carpool.find()
             .sort({ createdAt: -1 })
             .populate('userId', 'name email')
-            .populate('bookedBy', 'name');
+            // populate the user inside bookedBy subdocs
+            .populate('bookedBy.user', 'name');
 
         // Store in cache for 30 seconds
         await cacheClient.setEx(cacheKey, 30, JSON.stringify(carpools));
@@ -158,8 +152,7 @@ app.get('/', async (req, res) => {
     }
 });
 
-
-// Auth Routes (Login, Register, Logout) - Omitted for brevity, assuming no change needed
+// Auth Routes (Login, Register, Logout)
 app.get('/auth/login-register', (req, res) => res.render('auth/login-register', { title: 'Login / Register', error: null, message: null }));
 app.post('/auth/register', async (req, res) => {
     const { name, email, password } = req.body;
@@ -189,7 +182,7 @@ app.get('/logout', (req, res) => {
     res.redirect('/auth/login-register');
 });
 
-// Admin Routes - Omitted for brevity, assuming no change needed
+// Admin Routes
 app.get('/admin/manage-offers', auth, admin, async (req, res) => {
     const carpools = await Carpool.find().populate('userId', 'name email');
     res.render('admin/manage-offers', { title: 'Manage Offers', carpools });
@@ -199,7 +192,7 @@ app.delete('/admin/offers/:id', auth, admin, async(req, res) => {
     res.redirect('/admin/manage-offers');
 });
 
-// Carpool Routes - Omitted for brevity, assuming no change needed
+// Carpool Routes
 app.get('/carpools/new', auth, (req, res) => { 
     res.render('user/create-offer', { title: 'Create Offer' });
 });
@@ -215,39 +208,77 @@ app.post('/carpools', auth, async (req, res) => {
         res.status(500).send('Server error.');
     }
 });
+
+// Booking route - now supports selecting seats (req.body.seats)
 app.post('/carpools/:id/book', auth, async (req, res) => { 
     try {
-        const carpool = await Carpool.findById(req.params.id);
-        const userHasBooked = carpool && carpool.bookedBy.some(bookerId => bookerId.equals(req.user.id));
-
-        if (carpool && !carpool.userId.equals(req.user.id) && carpool.bookedSeats < carpool.totalSeats && !userHasBooked) {
-            await Carpool.findByIdAndUpdate(req.params.id, { 
-                $inc: { bookedSeats: 1 },
-                $push: { bookedBy: req.user.id } 
-            });
-            await cacheClient.del("carpools:list");
-
+        const seatsRequested = parseInt(req.body.seats, 10) || 1;
+        if (seatsRequested < 1) {
+            return res.status(400).send('Invalid number of seats requested.');
         }
-        res.redirect('/');
+
+        const carpool = await Carpool.findById(req.params.id).populate('bookedBy.user', 'name');
+
+        if (!carpool) {
+            return res.status(404).send('Carpool not found.');
+        }
+
+        // prevent driver booking their own offer
+        if (carpool.userId.equals(req.user.id)) {
+            return res.status(400).send('You cannot book your own offer.');
+        }
+
+        // check if user already has a booking
+        const existingBooking = carpool.bookedBy.find(b => b.user && String(b.user._id || b.user) === String(req.user.id));
+        if (existingBooking) {
+            return res.status(400).send('You have already booked seats for this carpool.');
+        }
+
+        const available = (carpool.totalSeats || 0) - (carpool.bookedSeats || 0);
+        if (seatsRequested > available) {
+            return res.status(400).send(`Only ${available} seat(s) available.`);
+        }
+
+        // update atomically: increment bookedSeats and push booking subdoc
+        await Carpool.findByIdAndUpdate(req.params.id, {
+            $inc: { bookedSeats: seatsRequested },
+            $push: { bookedBy: { user: req.user.id, seats: seatsRequested } }
+        });
+
+        try { await cacheClient.del("carpools:list"); } catch (e) { /* ignore cache errors */ }
+
+        return res.redirect('/');
     } catch (err) {
         console.error(err);
         res.status(500).send('Server error.');
     }
 });
+
+// Cancel booking route - removes user's booking and frees up their seats
 app.post('/carpools/:id/cancel', auth, async (req, res) => { 
     try {
         const carpool = await Carpool.findById(req.params.id);
-        const userHasBooked = carpool && carpool.bookedBy.some(bookerId => bookerId.equals(req.user.id));
-        
-        if (userHasBooked) {
-            await Carpool.findByIdAndUpdate(req.params.id, { 
-                $inc: { bookedSeats: -1 },
-                $pull: { bookedBy: req.user.id }
-            });
-            await cacheClient.del("carpools:list");
 
+        if (!carpool) {
+            return res.status(404).send('Carpool not found.');
         }
-        res.redirect('/');
+
+        const userBooking = carpool.bookedBy.find(b => b.user && String(b.user) === String(req.user.id) || b.user && String(b.user._id) === String(req.user.id));
+
+        if (!userBooking) {
+            return res.redirect('/');
+        }
+
+        const seatsToFree = (userBooking.seats && Number(userBooking.seats)) || 1;
+
+        await Carpool.findByIdAndUpdate(req.params.id, {
+            $inc: { bookedSeats: -seatsToFree },
+            $pull: { bookedBy: { user: req.user.id } }
+        });
+
+        try { await cacheClient.del("carpools:list"); } catch (e) { /* ignore cache errors */ }
+
+        return res.redirect('/');
     } catch (err) {
         console.error(err);
         res.status(500).send('Server error.');
@@ -264,7 +295,6 @@ app.get('/chat/:carpoolId', auth, async (req, res) => {
 wss.on('connection', ws => {
     console.log('Client connected to WebSocket');
     
-    
     ws.carpoolId = null;
 
     ws.on('message', async (message) => {
@@ -273,40 +303,38 @@ wss.on('connection', ws => {
             const { type, carpoolId, userId, name, message: messageText } = data;
 
             if (type === 'join') {
-    
-    if (ws.carpoolId && localConnections.has(ws.carpoolId)) {
-        localConnections.get(ws.carpoolId).delete(ws);
+                if (ws.carpoolId && localConnections.has(ws.carpoolId)) {
+                    localConnections.get(ws.carpoolId).delete(ws);
 
-        if (localConnections.get(ws.carpoolId).size === 0) {
-            try {
-                await subscriber.unsubscribe(ws.carpoolId);
-            } catch (err) {
-                console.error(`Unsubscribe failed for ${ws.carpoolId}:`, err);
+                    if (localConnections.get(ws.carpoolId).size === 0) {
+                        try {
+                            await subscriber.unsubscribe(ws.carpoolId);
+                        } catch (err) {
+                            console.error(`Unsubscribe failed for ${ws.carpoolId}:`, err);
+                        }
+                        localConnections.delete(ws.carpoolId);
+                    }
+                }
+
+                ws.carpoolId = carpoolId;
+
+                if (!localConnections.has(carpoolId)) {
+                    try {
+                        await subscriber.subscribe(carpoolId, (payload) => {
+                            broadcastToLocalClients(carpoolId, payload);
+                        });
+                        console.log(`Subscribed to Redis channel ${carpoolId}`);
+                    } catch (err) {
+                        console.error(`Subscribe error for ${carpoolId}:`, err);
+                    }
+
+                    localConnections.set(carpoolId, new Set());
+                }
+
+                localConnections.get(carpoolId).add(ws);
+                console.log(`Client ${userId} joined ${carpoolId}`);
+                return;
             }
-            localConnections.delete(ws.carpoolId);
-        }
-    }
-
-    ws.carpoolId = carpoolId;
-
-    if (!localConnections.has(carpoolId)) {
-        try {
-            await subscriber.subscribe(carpoolId, (payload) => {
-                broadcastToLocalClients(carpoolId, payload);
-            });
-            console.log(`Subscribed to Redis channel ${carpoolId}`);
-        } catch (err) {
-            console.error(`Subscribe error for ${carpoolId}:`, err);
-        }
-
-        localConnections.set(carpoolId, new Set());
-    }
-
-    localConnections.get(carpoolId).add(ws);
-    console.log(`Client ${userId} joined ${carpoolId}`);
-    return;
-}
-
 
             if (type === 'chat') {
                 // Save the message to the database
@@ -324,9 +352,7 @@ wss.on('connection', ws => {
                     message: messageText,
                 });
 
-                // --- REDIS: Publish the message to the Redis channel ---
-                // The message is sent to Redis, which then broadcasts it to the subscriber
-                // clients on ALL server instances (including this one).
+                // Publish the message to Redis channel
                 await publisher.publish(carpoolId, broadcastMessage);
             }
         } catch (error) {
@@ -335,24 +361,23 @@ wss.on('connection', ws => {
     });
 
     ws.on('close', async () => {
-    if (ws.carpoolId && localConnections.has(ws.carpoolId)) {
-        const set = localConnections.get(ws.carpoolId);
-        set.delete(ws);
+        if (ws.carpoolId && localConnections.has(ws.carpoolId)) {
+            const set = localConnections.get(ws.carpoolId);
+            set.delete(ws);
 
-        if (set.size === 0) {
-            try {
-                await subscriber.unsubscribe(ws.carpoolId);
-            } catch (err) {
-                console.error(`Unsubscribe error for ${ws.carpoolId}:`, err);
+            if (set.size === 0) {
+                try {
+                    await subscriber.unsubscribe(ws.carpoolId);
+                } catch (err) {
+                    console.error(`Unsubscribe error for ${ws.carpoolId}:`, err);
+                }
+                localConnections.delete(ws.carpoolId);
+                console.log(`Room ${ws.carpoolId} now empty`);
             }
-            localConnections.delete(ws.carpoolId);
-            console.log(`Room ${ws.carpoolId} now empty`);
         }
-    }
-});
+    });
 
 });
 
 // --- EXPORT THE APP AND SERVER ---
-
 module.exports = { app, server };

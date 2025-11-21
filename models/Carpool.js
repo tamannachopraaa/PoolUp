@@ -37,9 +37,18 @@ const carpoolSchema = new mongoose.Schema({
     },
     // This new field will store the users who have booked a seat
     bookedBy: [{
+    user: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }]
+        ref: 'User',
+        required: true
+    },
+    seats: {
+        type: Number,
+        required: true,
+        default: 1,
+        min: 1
+    }
+}]
 }, {
     // This automatically adds `createdAt` and `updatedAt` fields
     timestamps: true 
