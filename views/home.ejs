@@ -27,42 +27,46 @@
                             <p><strong>Time:</strong> <%= carpool.time %></p>
                             <p><strong>Price:</strong> ₹<%= carpool.price %></p>
                             <p><strong>Seats Available:</strong> <%= (carpool.totalSeats || 0) - (carpool.bookedSeats || 0) %>/<%= carpool.totalSeats %></p>
-                            <p><strong>Driver:</strong> <%= carpool.userId.name %></p>
-                            <p><strong>Contact:</strong> <%= carpool.userId.email %></p>
+                            <p><strong>Driver:</strong> <%= (carpool.userId && (carpool.userId.name || carpool.userId)) ? (carpool.userId.name || carpool.userId) : 'Driver' %></p>
+                            <p><strong>Contact:</strong> <%= (carpool.userId && carpool.userId.email) ? carpool.userId.email : '' %></p>
                             <p><strong>Preference:</strong> <%= carpool.gender %></p>
 
-                            <% /* Driver view: show who booked and how many seats */ %>
-                            <% if (carpool.userId && carpool.userId.equals && carpool.userId.equals(user.id) && carpool.bookedBy && carpool.bookedBy.length > 0) { %>
+                            <% 
+                              // normalize owner id
+                              const ownerId = carpool.userId && (carpool.userId._id ? carpool.userId._id : carpool.userId);
+                              const isOwner = ownerId && String(ownerId) === String(user.id);
+                            %>
+
+                            <% if (isOwner && carpool.bookedBy && carpool.bookedBy.length > 0) { %>
                                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
                                     <p><strong>Booked By:</strong></p>
                                     <ul style="list-style: none; padding-left: 1rem;">
-                                        <% carpool.bookedBy.forEach(booker => { %>
-                                            <% 
-                                                // handle populated user vs raw id
-                                                const bookerName = (booker.user && (booker.user.name || booker.user)) ? (booker.user.name || booker.user) : (booker.name || 'User');
-                                                const seatsBooked = (booker.seats) ? booker.seats : 1;
-                                            %>
-                                            <li><%= bookerName %> — <%= seatsBooked %> seat<%= seatsBooked > 1 ? 's' : '' %></li>
+                                        <% carpool.bookedBy.forEach(booker => { 
+                                            const bookerName = (booker.user && (booker.user.name || booker.user)) ? (booker.user.name || booker.user) : (booker.name || 'User');
+                                            const seatsBooked = (booker.seats) ? booker.seats : 1;
+                                        %>
+                                            <li><%= bookerName %> — <%= seatsBooked %> seat<%= (seatsBooked > 1) ? 's' : '' %></li>
                                         <% }) %>
                                     </ul>
                                 </div>
                             <% } %>
                         </div>
+
                         <div class="card-footer">
-                             <% if (user.role === 'admin') { %>
+                            <% if (user.role === 'admin') { %>
                                 <form action="/admin/offers/<%= carpool._id %>?_method=DELETE" method="POST">
                                     <button type="submit" class="btn btn-danger">Delete (Admin)</button>
                                 </form>
-                            <% } else if (!carpool.userId.equals(user.id)) { %>
+                            <% } else { %>
 
                                 <% 
-                                    // compute if current user has already booked and find their booking
+                                    // compute booking state for current user (defensive)
                                     let userHasBooked = false;
                                     let userBooking = null;
                                     if (carpool.bookedBy && carpool.bookedBy.length > 0) {
                                         for (let i = 0; i < carpool.bookedBy.length; i++) {
                                             const b = carpool.bookedBy[i];
-                                            const bookedUserId = b.user ? (b.user._id ? b.user._id : b.user) : null;
+                                            const bookedUserId = b.user ? (b.user._id ? b.user._id : b.user) : (b._id ? b._id : null);
                                             if (bookedUserId && String(bookedUserId) === String(user.id)) {
                                                 userHasBooked = true;
                                                 userBooking = b;
@@ -70,31 +74,40 @@
                                             }
                                         }
                                     }
+
+                                    const ownerId2 = carpool.userId && (carpool.userId._id ? carpool.userId._id : carpool.userId);
+                                    const isOwner2 = ownerId2 && String(ownerId2) === String(user.id);
+
                                     const availableSeats = (carpool.totalSeats || 0) - (carpool.bookedSeats || 0);
                                 %>
 
-                                <% if (userHasBooked) { %>
-                                    <p style="margin:0 0 0.5rem 0;"><strong>You booked:</strong> <%= userBooking.seats || 1 %> seat<%= (userBooking.seats && userBooking.seats > 1) ? 's' : '' %></p>
+                                <% if (isOwner2) { %>
+                                    <span class="btn" style="background: none; border: 1px solid var(--glow-blue); color: var(--glow-blue); cursor: default;">Your Offer</span>
+
+                                <% } else if (userHasBooked) { %>
+                                    <p style="margin:0 0 0.5rem 0;" class="booked-info"><strong>You booked:</strong> <%= userBooking.seats || 1 %> seat<%= ((userBooking.seats && userBooking.seats > 1) ? 's' : '') %></p>
                                     <form action="/carpools/<%= carpool._id %>/cancel" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-danger">Cancel Booking</button>
                                     </form>
+
                                 <% } else if (availableSeats > 0) { %>
                                     <form action="/carpools/<%= carpool._id %>/book" method="POST" class="inline-book-form" style="display:flex; gap:0.5rem; align-items:center;">
                                         <label for="seats-<%= carpool._id %>" class="visually-hidden">Seats</label>
-                                        <select id="seats-<%= carpool._id %>" name="seats" required style="padding:6px 8px;">
+                                        <select id="seats-<%= carpool._id %>" name="seats" required class="seat-select">
                                             <% for (let i = 1; i <= availableSeats; i++) { %>
-                                                <option value="<%= i %>"><%= i %> seat<%= i > 1 ? 's' : '' %></option>
+                                                <option value="<%= i %>"><%= i %> seat<%= (i > 1) ? 's' : '' %></option>
                                             <% } %>
                                         </select>
                                         <button type="submit" class="btn btn-primary">Book</button>
                                     </form>
+
                                 <% } else { %>
                                     <button class="btn" disabled>Fully Booked</button>
                                 <% } %>
-                            <% } else { %>
-                                <span class="btn" style="background: none; border: 1px solid var(--glow-blue); color: var(--glow-blue); cursor: default;">Your Offer</span>
+
                             <% } %>
-                             <a href="/chat/<%= carpool._id %>" class="btn btn-secondary">Chat</a>
+
+                            <a href="/chat/<%= carpool._id %>" class="btn btn-secondary">Chat</a>
                         </div>
                     </div>
                 <% }); %>
