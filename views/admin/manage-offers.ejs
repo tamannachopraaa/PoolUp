@@ -15,11 +15,26 @@
             <div class="carpool-card">
 
                 <div>
+                    <% 
+                        const rawTime = carpool.time;
+                        let displayTime = 'Not set';
+                        if (typeof rawTime === 'string' && /^\d{1,2}:\d{2}/.test(rawTime)) {
+                            displayTime = rawTime;
+                        } else {
+                            const t = new Date(rawTime);
+                            if (!isNaN(t.getTime())) {
+                                displayTime = t.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+                            } else if (carpool.createdAt) {
+                                const c = new Date(carpool.createdAt);
+                                if (!isNaN(c.getTime())) {
+                                    displayTime = c.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+                                }
+                            }
+                        }
+                    %>
                     <h4><%= carpool.carName %></h4>
                     <p><strong>From:</strong> <%= carpool.location %></p>
-                    <p><strong>Time:</strong> 
-                        <%= new Date(carpool.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute:'2-digit' }) %>
-                    </p>
+                    <p><strong>Time:</strong> <%= displayTime %></p>
                     <p><strong>Price:</strong> ₹<%= carpool.price %></p>
 
                     <p><strong>Driver:</strong> 

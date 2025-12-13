@@ -11,6 +11,83 @@
             </h3>
         </div>
 
+        <% // --- Booking summary (upcoming/completed; cancelled placeholder) --- %>
+        <% 
+            const now = new Date();
+            const isAdmin = user.role === 'admin';
+            let upcomingRides = 0;
+            let completedRides = 0;
+            let cancelledRides = 0; // placeholder for future cancellation tracking
+
+            function rideBelongsToUser(carpool) {
+                if (isAdmin) return true; // admin sees all
+                const ownerId = carpool.userId && (carpool.userId._id ? carpool.userId._id : carpool.userId);
+                if (ownerId && String(ownerId) === String(user.id)) return true;
+                if (!carpool.bookedBy) return false;
+                return carpool.bookedBy.some(b => {
+                    const bid = b.user ? (b.user._id ? b.user._id : b.user) : null;
+                    return bid && String(bid) === String(user.id);
+                });
+            }
+
+            // Parse ride time: ISO string works; if only HH:mm, merge with createdAt date; else fallback to createdAt or now
+            function rideDate(carpool) {
+                if (carpool && carpool.time) {
+                    const t = new Date(carpool.time);
+                    if (!isNaN(t.getTime())) return t;
+                }
+                if (carpool && carpool.createdAt) {
+                    const base = new Date(carpool.createdAt);
+                    if (!isNaN(base.getTime())) {
+                        if (typeof carpool.time === 'string' && /^\d{1,2}:\d{2}/.test(carpool.time)) {
+                            const parts = carpool.time.split(':');
+                            const hh = parseInt(parts[0], 10) || 0;
+                            const mm = parseInt(parts[1], 10) || 0;
+                            base.setHours(hh, mm, 0, 0);
+                        }
+                        return base;
+                    }
+                }
+                return now;
+            }
+
+            if (carpools && carpools.length > 0) {
+                carpools.forEach(carpool => {
+                    if (!rideBelongsToUser(carpool)) return;
+                    const when = rideDate(carpool);
+                    if (when > now) {
+                        upcomingRides += 1;
+                    } else {
+                        completedRides += 1;
+                    }
+                });
+            }
+        %>
+
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-icon">🚐</div>
+                <div>
+                    <p class="summary-label">Upcoming rides</p>
+                    <p class="summary-value"><%= upcomingRides %></p>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">✅</div>
+                <div>
+                    <p class="summary-label">Completed rides</p>
+                    <p class="summary-value"><%= completedRides %></p>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">↩️</div>
+                <div>
+                    <p class="summary-label">Cancelled rides</p>
+                    <p class="summary-value"><%= cancelledRides %></p>
+                </div>
+            </div>
+        </div>
+
         <% if (user.role !== 'admin') { %>
         <div style="text-align: center; margin-bottom: 2rem;">
             <a href="/carpools/new" class="btn btn-primary">Create a New Offer</a>
@@ -22,11 +99,24 @@
                 <% carpools.forEach(carpool => { %>
                     <div class="carpool-card">
                         <div>
+                            <% 
+                                const rawTime = carpool.time;
+                                let displayTime = 'Not set';
+                                if (typeof rawTime === 'string' && /^\d{1,2}:\d{2}/.test(rawTime)) {
+                                    displayTime = rawTime;
+                                } else {
+                                    const when = rideDate(carpool);
+                                    if (!isNaN(when.getTime())) {
+                                        displayTime = when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+                                    }
+                                }
+                            %>
                             <h4><%= carpool.carName %></h4>
                             <p><strong>From:</strong> <%= carpool.location %></p>
-                            <p><strong>Time:</strong> <%= carpool.time %></p>
+                            <p><strong>Time:</strong> <%= displayTime %></p>
                             <p><strong>Price:</strong> ₹<%= carpool.price %></p>
-                            <p><strong>Seats Available:</strong> <%= (carpool.totalSeats || 0) - (carpool.bookedSeats || 0) %>/<%= carpool.totalSeats %></p>
+                            <% const seatsFree = (carpool.totalSeats || 0) - (carpool.bookedSeats || 0); %>
+                            <p><strong>Seats Available:</strong> <%= seatsFree %>/<%= carpool.totalSeats %></p>
                             <p><strong>Driver:</strong> <%= (carpool.userId && (carpool.userId.name || carpool.userId)) ? (carpool.userId.name || carpool.userId) : 'Driver' %></p>
                             <p><strong>Contact:</strong> <%= (carpool.userId && carpool.userId.email) ? carpool.userId.email : '' %></p>
                             <p><strong>Preference:</strong> <%= carpool.gender %></p>

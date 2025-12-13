@@ -268,6 +268,13 @@ app.get('/carpools/new', auth, (req, res) => {
 app.post('/carpools', auth, async (req, res) => { 
     const { carName, location, time, price, gender, totalSeats } = req.body;
     try {
+        // Validate that the ride time is in the future
+        const rideTime = new Date(time);
+        const now = new Date();
+        if (isNaN(rideTime.getTime()) || rideTime <= now) {
+            return res.status(400).send('Please select a valid future date and time for the ride.');
+        }
+
         await Carpool.create({ userId: res.locals.user.id, carName, location, time, price, gender, totalSeats, bookedSeats: 0, bookedBy: [] });
         await cacheClient.del("carpools:list");
 
