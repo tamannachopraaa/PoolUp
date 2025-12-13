@@ -40,11 +40,11 @@ body::before {
     content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     z-index: -1;
     background: 
-        radial-gradient(ellipse at 70% 30%, var(--glow-purple) 0%, transparent 45%),
-        radial-gradient(ellipse at 30% 70%, var(--glow-blue) 0%, transparent 45%);
-    background-size: 200% 200%;
-    opacity: 0.1;
-    animation: moveAurora 30s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
+        radial-gradient(ellipse at 70% 30%, rgba(158, 0, 255, 0.45) 0%, transparent 42%),
+        radial-gradient(ellipse at 30% 70%, rgba(0, 170, 255, 0.40) 0%, transparent 42%);
+    background-size: 170% 170%;
+    opacity: 0.06; /* softer glow */
+    animation: moveAurora 28s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
 }
 
 @keyframes moveAurora {
@@ -102,14 +102,14 @@ main { min-height: calc(100vh - 142px); width: 100%; position: relative; z-index
 
 /* Home Page / Hero */
 .hero-container { display: grid; place-content: center; text-align: center; min-height: 80vh; position: relative; }
-.hero-container h1 { font-size: 4rem; text-shadow: 0 0 15px rgba(0, 170, 255, 0.5); margin-bottom: 1rem; line-height: 1.2; font-weight: 700; }
+.hero-container h1 { font-size: 4rem; text-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); margin-bottom: 1rem; line-height: 1.2; font-weight: 700; }
 .hero-container p { font-size: 1.2rem; color: var(--text-secondary); max-width: 600px; margin: 1rem auto 2.5rem; }
-.hero-container::after { content: ''; position: absolute; top: 50%; left: 50%; width: 800px; height: 800px; background: radial-gradient(circle, rgba(158, 0, 255, 0.1) 0%, rgba(158, 0, 255, 0) 50%); transform: translate(-50%, -50%); z-index: -1; pointer-events: none; }
+.hero-container::after { content: ''; position: absolute; top: 50%; left: 50%; width: 620px; height: 620px; background: radial-gradient(circle, rgba(0, 162, 255, 0.08) 0%, rgba(0, 162, 255, 0) 52%); transform: translate(-50%, -50%); z-index: -1; pointer-events: none; filter: blur(12px); }
 .hero-container .btn-primary { animation: pulse 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1); padding: 16px 40px; font-size: 1.1rem; }
 
 @keyframes pulse {
-    0%, 100% { transform: scale(1); box-shadow: 0 4px 20px rgba(158, 0, 255, 0.4); }
-    50% { transform: scale(1.03); box-shadow: 0 6px 30px rgba(0, 170, 255, 0.5); }
+    0%, 100% { transform: scale(1); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+    50% { transform: scale(1.02); box-shadow: 0 6px 22px rgba(0, 162, 255, 0.4); }
 }
 
 .benefits-section { padding: 4rem 0; }
