@@ -89,6 +89,45 @@ app.use((req, res, next) => {
 // ================== ROUTES ==================
 
 // HOME
+
+// ================== ADMIN ==================
+app.get('/admin/manage-offers', auth, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Forbidden');
+  }
+
+  const carpools = await Carpool.find().populate('userId', 'name email');
+  res.render('admin/manage-offers', {
+    title: 'Manage Offers',
+    carpools,
+  });
+});
+
+app.get('/admin/manage-users', auth, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Forbidden');
+  }
+
+  const users = await User.find();
+  res.render('admin/manage-users', {
+    title: 'Manage Users',
+    users,
+  });
+});
+
+app.delete('/admin/offers/:id', auth, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).send('Forbidden');
+  }
+
+  await Carpool.findByIdAndDelete(req.params.id);
+  res.redirect('/admin/manage-offers');
+});
+
+
+
+
+
 app.get('/', async (req, res) => {
   try {
     if (!req.user) {
