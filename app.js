@@ -327,6 +327,7 @@ function broadcast(room, msg) {
 }
 
 wss.on('connection', ws => {
+      console.log('🔌 WebSocket client connected');
   ws.room = null;
 
   ws.on('message', async raw => {

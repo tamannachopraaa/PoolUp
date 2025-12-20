@@ -1,86 +1,80 @@
-<!-- Main page container, centered vertically and horizontally -->
+<!-- Main page container -->
 <div class="page-container" style="display: grid; place-items: center; min-height: 80vh;">
-    <div class="page-header" style="margin-bottom: 1rem;">
-        <h2>Chat about Ride</h2>
+  <div class="page-header" style="margin-bottom: 1rem;">
+    <h2>Chat about Ride</h2>
+  </div>
+
+  <div class="chat-container">
+    <div id="chat-box">
+      <% if (messages && messages.length > 0) { %>
+        <% messages.forEach(msg => { %>
+          <p><strong><%= msg.sender.name %>:</strong> <%= msg.message %></p>
+        <% }) %>
+      <% } else { %>
+        <p style="text-align:center;color:#777">No messages yet. Say hello!</p>
+      <% } %>
     </div>
-    <div class="chat-container">
-        <div id="chat-box">
-            <% if(messages && messages.length > 0) { %>
-                <% messages.forEach(msg => { %>
-                    <p><strong><%= msg.sender.name %>:</strong> <%= msg.message %></p>
-                <% }); %>
-            <% } else { %>
-                 <!-- Message shown when no chat messages exist -->
-                 <p style="text-align: center; color: var(--text-secondary);">No messages yet. Say hello!</p>
-            <% } %>
-        </div>
-        <form id="chat-form">
-            <input type="text" id="message-input" placeholder="Type a message..." required autocomplete="off">
-            <button type="submit" class="btn btn-primary">Send</button>
-        </form>
-    </div>
+
+    <form id="chat-form">
+      <input type="text" id="message-input" placeholder="Type a message..." required />
+      <button type="submit">Send</button>
+    </form>
+  </div>
 </div>
 
 <script>
-    const chatForm = document.getElementById('chat-form');
-    const messageInput = document.getElementById('message-input');
-    const chatBox = document.getElementById('chat-box');
+  const chatForm = document.getElementById('chat-form');
+  const messageInput = document.getElementById('message-input');
+  const chatBox = document.getElementById('chat-box');
 
-    const carpoolId = '<%= carpoolId %>';
-    const userId = '<%= user.id %>';
-    const userName = '<%= user.name %>';
+  const carpoolId = "<%= carpoolId %>";
+  const userId = "<%= user.id %>";
+  const userName = "<%= user.name %>";
 
-    const ws = new WebSocket(`ws://${window.location.host}`);
+  // ✅ FIX 1: HTTPS → WSS
+  const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const ws = new WebSocket(protocol + window.location.host);
 
-    ws.onopen = () => {
-        console.log('Connected to WebSocket');
-        ws.send(JSON.stringify({ type: 'join', carpoolId: carpoolId }));
-    };
+  ws.onopen = () => {
+    console.log('✅ WebSocket connected');
 
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'message') {
-            const messageElement = document.createElement('p');
-            messageElement.innerHTML = `<strong>${data.name}:</strong> ${data.message}`;
-            chatBox.appendChild(messageElement);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-    };
+    // ✅ FIX 2: Proper join event
+    ws.send(JSON.stringify({
+      type: 'join',
+      carpoolId: carpoolId,
+      userId: userId,
+      name: userName
+    }));
+  };
 
-    /* ------------------------------------------------------
-       LOCAL STORAGE: Persist username across site visits
-    ------------------------------------------------------ */
-    if (!localStorage.getItem("username")) {
-        localStorage.setItem("username", userName);
-    }
-    console.log("Loaded username from localStorage:", localStorage.getItem("username"));
+  // ✅ FIX 3: Do NOT check data.type (backend doesn't send it)
+  ws.onmessage = (event) => {
+    console.log('📩 Message received:', event.data);
 
-    /* ------------------------------------------------------
-       SESSION STORAGE: Save chat draft per browser tab
-    ------------------------------------------------------ */
-    if (sessionStorage.getItem("draftMessage")) {
-        messageInput.value = sessionStorage.getItem("draftMessage");
-    }
+    const data = JSON.parse(event.data);
+    const p = document.createElement('p');
+    p.innerHTML = `<strong>${data.name}:</strong> ${data.message}`;
+    chatBox.appendChild(p);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  };
 
-    messageInput.addEventListener("input", () => {
-        sessionStorage.setItem("draftMessage", messageInput.value);
-    });
+  ws.onerror = (err) => {
+    console.error('❌ WebSocket error', err);
+  };
 
-    chatForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const message = messageInput.value.trim();
-        if (message) {
-            ws.send(JSON.stringify({
-                type: 'chat',
-                carpoolId: carpoolId,
-                userId: userId,
-                name: userName,
-                message: message
-            }));
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const message = messageInput.value.trim();
+    if (!message) return;
 
-            // Clear draft after sending
-            sessionStorage.removeItem("draftMessage");
-            messageInput.value = '';
-        }
-    });
+    ws.send(JSON.stringify({
+      type: 'chat',
+      carpoolId: carpoolId,
+      userId: userId,
+      name: userName,
+      message: message
+    }));
+
+    messageInput.value = '';
+  });
 </script>
