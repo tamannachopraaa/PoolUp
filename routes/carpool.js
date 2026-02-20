@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { auth, admin } = require('../middleware/auth');
 const Carpool = require('../models/Carpool');
+const sendAdminNotification = require('../utils/mailer');
 
 /* ================= CREATE OFFER ================= */
 router.post('/', auth, async (req, res) => {
@@ -25,13 +26,18 @@ router.post('/', auth, async (req, res) => {
             bookedBy: []
         });
 
-        res.redirect('/');   // for EJS flow
+        // Simply call the function here. 
+        // No DB changes, just sending the 'carpool' object to the mailer.
+        sendAdminNotification(carpool);
+
+        res.redirect('/');   
     } catch (err) {
         console.error(err);
         res.status(500).send('Server error');
     }
 });
 
+// ... rest of your code stays exactly the same
 /* ================= LIST ALL CARPOOLS ================= */
 router.get('/', auth, async (req, res) => {
     try {
