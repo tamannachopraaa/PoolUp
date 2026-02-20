@@ -15,9 +15,9 @@ const carpoolSchema = new mongoose.Schema({
         required: true,
     },
     time: {
-        type: String,
-        required: true,
-    },
+    type: Date,
+    required: true,
+},
     price: {
         type: Number,
         required: true,
